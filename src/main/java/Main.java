@@ -25,13 +25,28 @@ public class Main {
             byte[] messageSize = new byte[4];
             in.read(messageSize);
 
-            in.skip(4);
+            byte[] apiKeyAndVersion = new byte[4];
+            in.read(apiKeyAndVersion);
+
+            int apiVersion = ((apiKeyAndVersion[2] & 0xFF) << 8 | (apiKeyAndVersion[3] & 0xFF));
+            System.err.println("API version: " + apiVersion);
 
             byte[] correlationIdBytes = new byte[4];
             in.read(correlationIdBytes);
 
             out.write(new byte[] {0,0,0,0});   //Message size
             out.write(correlationIdBytes);   // Correlation ID
+
+            boolean isValidVersion = apiVersion >= 0 && apiVersion <=4;
+
+            if(!isValidVersion){
+
+                //error code 35 for unsupported version
+                out.write(new byte[] {0,35});
+            }
+            else{
+                System.err.println("Received supported API version.");
+            }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         } finally {
