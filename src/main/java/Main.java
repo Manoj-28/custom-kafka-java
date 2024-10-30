@@ -15,30 +15,29 @@ public class Main {
 
     private static void sendErrorResponse(OutputStream out, byte[] correlationIdBytes) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        bos.write(new byte[] {0, 0, 0, 0}); // Message size
         bos.write(correlationIdBytes);       // Correlation ID
         bos.write(new byte[] {0, 35});       // Error code
-
+        int size = bos.size();
+        byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
+        System.out.println(Arrays.toString(sizeBytes));
+        out.write(sizeBytes);       //message size
         out.write(bos.toByteArray());
         System.err.println("Sent Error Response with Code: " + UNSUPPORTED_VERSION_ERROR_CODE);
     }
 
     private static void sendAPIVersionsResponse(OutputStream out, byte[] correlationIdBytes) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        bos.write(new byte[] {0, 0, 0, 0}); // Message size
         bos.write(correlationIdBytes);       // Correlation ID
         bos.write(new byte[] {0, 0});        // No error
-
+        bos.write(2);
         bos.write(new byte[] {0, 18});       // API key
-        bos.write(new byte[] {0, 3});        // Min version
+        bos.write(new byte[] {0, 0});        // Min version
         bos.write(new byte[] {0, 4});        // Max version
         bos.write(0);                        // Tagged fields
         bos.write(new byte[] {0, 0, 0, 0});  // Throttle time
-        bos.write(0);
-        // Tagged fields
+        bos.write(0);          // End of Tagged fields
         int size = bos.size();
         byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
-//        var response = bos.toByteArray();
         System.out.println(Arrays.toString(sizeBytes));
         System.out.println(Arrays.toString(bos.toByteArray()));
         out.write(sizeBytes);
@@ -60,7 +59,7 @@ public class Main {
                 in.readNBytes(4);  // Skip message size
 
                 byte[] apiKeyAndVersion = in.readNBytes(4);
-                int apiVersion = ((apiKeyAndVersion[2] & 0xFF) << 8) | (apiKeyAndVersion[3] & 0xFF);
+                int apiVersion = ((apiKeyAndVersion[2]) << 8) | (apiKeyAndVersion[3]);
                 System.err.println("API version: " + apiVersion);
 
                 byte[] correlationIdBytes = in.readNBytes(4);
