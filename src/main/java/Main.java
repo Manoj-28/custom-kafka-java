@@ -31,10 +31,14 @@ public class Main {
         System.err.println("CorrelationID: "+correlationId);
         bos.write(ByteBuffer.allocate(4).putInt(correlationId).array());  // Correlation ID
         bos.write(new byte[]{0, (byte) NO_ERROR_CODE});                     // No error
-        bos.write(2);                                                      // Number of API keys
+        bos.write(3);                                                      // Number of API keys
         bos.write(new byte[]{0, (byte) API_VERSIONS_KEY});                // API key (API_VERSIONS_KEY)
         bos.write(new byte[]{0, (byte) SUPPORTED_API_VERSION_MIN});       // Min version
         bos.write(new byte[]{0, (byte) SUPPORTED_API_VERSION_MAX});       // Max version
+        bos.write(0);
+        bos.write(new byte[] {0, 75});
+        bos.write(new byte[] {0,0});
+        bos.write(new byte[] {0,0});
         bos.write(0);
         bos.write(new byte[] {0, 0, 0, 0});                               // Throttle time
         bos.write(0);                                                     // Tagged fields end byte
@@ -123,3 +127,4 @@ public class Main {
         }
     }
 }
+
