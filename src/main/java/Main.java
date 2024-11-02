@@ -5,6 +5,7 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public class Main {
     private static final int UNSUPPORTED_VERSION_ERROR_CODE = 35;
@@ -13,6 +14,42 @@ public class Main {
     private static final int SUPPORTED_API_VERSION_MIN = 0;
     private static final int SUPPORTED_API_VERSION_MAX = 4;
     private static final int PORT = 9092;
+    private static final int DESCRIBE_TOPIC_PARTITIONS_KEY = 75;
+
+    private static void sendDescribeTopicPartitionsResponse(ByteBuffer inputBuf,OutputStream out, int correlationId) throws IOException{
+        int clientIdLength = inputBuf.getShort();
+        byte[] clientId = new byte[clientIdLength];
+        inputBuf.get(clientId);
+        inputBuf.get();
+        int arrayLength = inputBuf.get();
+        int topicNameLength = inputBuf.get();
+        byte[] topicNameBytes = new byte[topicNameLength];
+        String topicName = new String(topicNameBytes, StandardCharsets.UTF_8);
+        inputBuf.get(topicNameBytes);
+
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bos.write(ByteBuffer.allocate(4).putInt(correlationId).array());
+        bos.write(0);                                                               //Tag Buffer
+        bos.write(ByteBuffer.allocate(4).putInt(0).array());             //Throttle Time
+        bos.write(arrayLength);
+        bos.write(new byte[] {0, 3});                                                  //Error Code
+        bos.write(topicNameLength);
+        bos.write(topicNameBytes);
+        bos.write(new byte[16]);                                                       //Topic ID
+        bos.write(0);
+        bos.write(2);
+        bos.write(new byte[] {0,0,0,0,1,1,0,1,1,1,1,1,1,0,0,0});                       //Topic Authorized Operations
+        bos.write(0);                                                               //Tag Buffer
+        bos.write(0xFF);                                                            //Next Cursor
+        bos.write(0);                                                               //Tag Buffer
+
+        int size = bos.size();
+        out.write(ByteBuffer.allocate(4).putInt(size).array());
+        out.write(bos.toByteArray());
+        out.flush();
+        System.err.printf("Correlation ID: %d - Sent DescribeTopicPartitions response for unknown topic %s %n", correlationId,topicName);
+    }
 
     private static void sendErrorResponse(OutputStream out, int correlationId) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -82,16 +119,26 @@ public class Main {
                     }
 
                     ByteBuffer inputBuf = ByteBuffer.wrap(tmp);
+//          byte[] allData = new byte[inputBuf.remaining()]; // Array with remaining bytes
+//          inputBuf.get(allData); // Reads remaining data into array
+//          for (byte b : allData) {
+//            System.out.printf("%02x ", b);
+//          }
+//          System.out.println();
                     short apiKey = inputBuf.getShort();
                     short apiVersion = inputBuf.getShort();
                     int correlationId = inputBuf.getInt();
                     System.err.printf("API Key: %d, API Version: %d, Correlation ID: %d%n", apiKey, apiVersion, correlationId);
 
                     // Handle the request based on API key and version
-                    if (apiKey != API_VERSIONS_KEY || apiVersion < SUPPORTED_API_VERSION_MIN || apiVersion > SUPPORTED_API_VERSION_MAX) {
-                        sendErrorResponse(out, correlationId);
-                    } else {
+
+                    if(apiKey == DESCRIBE_TOPIC_PARTITIONS_KEY && apiVersion == 0){
+                        sendDescribeTopicPartitionsResponse(inputBuf,out,correlationId);
+                    }
+                    else if (apiKey == API_VERSIONS_KEY && apiVersion >= SUPPORTED_API_VERSION_MIN && apiVersion <= SUPPORTED_API_VERSION_MAX) {
                         sendAPIVersionsResponse(out, correlationId);
+                    } else {
+                        sendErrorResponse(out, correlationId);
                     }
                 }
             } catch (IOException e) {
